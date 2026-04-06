@@ -27,3 +27,37 @@ jobs:
         with:
           name: best-model
           path: models/best_model.pkl
+
+  deploy:
+    needs: train-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: best-model
+          path: models/
+
+      - name: Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install huggingface_hub
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi()
+          api.upload_file(
+              path_or_fileobj="models/best_model.pkl",
+              path_in_repo="best_model.pkl",
+              repo_id="moonlightaliza/MLOps-BestClassifier",
+              token=os.environ["HF_TOKEN"]
+          )
+          print("Deployed to Hugging Face!")
+          EOF
