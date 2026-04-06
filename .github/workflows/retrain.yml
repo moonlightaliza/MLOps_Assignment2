@@ -1,0 +1,50 @@
+name: Auto Retrain (Weekly)
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run retraining
+        run: python src/retrain.py
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Upload retrained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-model
+          path: models/best_model.pkl
+
+      - name: Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install huggingface_hub
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi()
+          api.upload_file(
+              path_or_fileobj="models/best_model.pkl",
+              path_in_repo="best_model.pkl",
+              repo_id="moonlightaliza/MLOps-BestClassifier",
+              token=os.environ["HF_TOKEN"]
+          )
+          print("Retrained model deployed!")
+          EOF
